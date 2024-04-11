@@ -1,74 +1,93 @@
+function deepObjectEquality(x: any, y: any): boolean {
+    // Adapted from https://javascript.plainenglish.io/you-dont-need-lodash-how-i-gave-up-lodash-693c8b96a07c
+    const ok = Object.keys, tx = typeof x, ty = typeof y
+    return x && y && tx === "object" && tx === ty ? (
+        ok(x).length === ok(y).length &&
+        ok(x).every(key => deepObjectEquality(x[key], y[key]))
+    ) : (x === y)
+}
+
 export type Identifier = string;
 
 export type Application = {
-    left: Expression,
+    left: Expression
     right: Expression
 }
 
 export type Abstraction = {
-    input: Identifier,
+    input: Identifier
     body: Expression
 }
 
 export type Expression = Identifier | Application | Abstraction;
 
-function isIdentifier(e: Expression): e is Identifier {
-    return typeof e === 'string';
+export function isIdentifier(e: Expression): e is Identifier {
+    return typeof e === "string"
 }
 
-function isApplication(e: Expression): e is Application {
-    return (e as Application).left !== undefined;
+export function isApplication(e: Expression): e is Application {
+    return (e as Application).left !== undefined
 }
 
-function isAbstraction(e: Expression): e is Abstraction {
-    return (e as Abstraction).body !== undefined;
+export function isAbstraction(e: Expression): e is Abstraction {
+    return (e as Abstraction).body !== undefined
 }
 
 export function evaluate(e: Expression): Expression {
     // Identifiers are atomic
-    // and abstractions cannot be evaluated by themselves
-    // TODO: some sort of simplication step here that does try to analyse abstraction bodies?
-    if (isIdentifier(e) || isAbstraction(e))
-        return e;
+    if (isIdentifier(e))
+        return e
+
+    if (isAbstraction(e))
+        return {
+            input: e.input,
+            body: evaluate(e.body),
+        }
 
     // Guard rail: everything past this point deals with evaluating applications
     if (!isApplication(e))
-        throw Error("Unknown expression type");
+        throw Error("Unknown expression type")
 
-    const l = evaluate(e.left);
-    const r = evaluate(e.right);
+    const l = evaluate(e.left)
+    const r = evaluate(e.right)
 
     if (isAbstraction(l)) {
-        const identToReplace = l.input;
+        const identToReplace = l.input
 
         // Takes in an expression, and recursively substitutes identToReplace with r
         // (by the definition of application)
-        // TODO: this doesn't take into account variables in inner scopes being shadowed
         const recursivelySubstituteArgument = (e: Expression): Expression => {
             if (isIdentifier(e) && e == identToReplace) {
                 return r
             } else if (isAbstraction(e)) {
-                return {
+                return e.input == identToReplace ? e : {
                     input: e.input,
-                    body: recursivelySubstituteArgument(e.body)
+                    body: recursivelySubstituteArgument(e.body),
                 }
             } else if (isApplication(e)) {
                 return {
                     left: recursivelySubstituteArgument(e.left),
-                    right: recursivelySubstituteArgument(e.right)
+                    right: recursivelySubstituteArgument(e.right),
                 }
             }
 
             return e
         }
 
-        return evaluate(recursivelySubstituteArgument(l.body));
+        const substituted = recursivelySubstituteArgument(l.body)
+        if (deepObjectEquality(substituted, e)) {
+            // We've got a recursive abstraction on our hands!
+            // TODO: make this smarter; able to identify cyclical expansion loops
+            return substituted
+        }
+
+        return evaluate(substituted)
     }
 
     // If we're here, the left side of this application is a symbol, and we're done.
     // The result is simply the right side applied to the left side.
     return {
         left: l,
-        right: r
-    };
+        right: r,
+    }
 }
