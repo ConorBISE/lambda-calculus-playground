@@ -1,4 +1,4 @@
-import { Expression } from "./abstraction"
+import { Expression, recursivelySubstituteArgument } from "./abstraction"
 
 function takeCharacter(s: string): [string, string] {
     if (s.length === 0)
@@ -84,4 +84,31 @@ export function parseExpression(s: string): Expression {
     }
 
     return e || ""
+}
+
+export function parseScript(s: string): Expression {
+    const lines = s.split("\n").map(l => l.replaceAll(/\s/g, ""))
+    const expressionList: [string, Expression][] = []
+
+    lines.slice(0, -1).forEach(l => {
+        if (l.trim().length == 0)
+            return
+
+        const [expressionName, expressionString] = splitOnFirst(l, "=")
+        let expression = parseExpression(expressionString)
+
+        expressionList.forEach(([name, e]) => {
+            expression = recursivelySubstituteArgument(expression, name, e)
+        })
+
+        expressionList.push([expressionName, expression])
+    })
+
+    let loose = parseExpression(lines.at(-1) || "")
+
+    expressionList.forEach(([name, e]) => {
+        loose = recursivelySubstituteArgument(loose, name, e)
+    })
+
+    return loose
 }

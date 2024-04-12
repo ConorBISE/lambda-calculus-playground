@@ -17,6 +17,21 @@ export function serializeExpression(e: Expression): string {
             body = body.body
         }
 
+        // Identify numbers
+        // Numbers repeat a function n times
+        if (inputs.length == 2) {
+            // This is horrible
+            // TODO: generalize to some sort of middleware-based system?
+            const bodyString = serializeExpression(body).replaceAll(" ", "")
+            const f = bodyString.slice(0, bodyString.length - 1)
+            const last = bodyString.charAt(bodyString.length - 1)
+
+            const isNumber = f.split("").every(c => c === f[0]) && last != f[0]
+
+            if (isNumber)
+                return `${f.length}`
+        }
+
         return `(λ${inputs}.${serializeExpression(body)})`
     }
 

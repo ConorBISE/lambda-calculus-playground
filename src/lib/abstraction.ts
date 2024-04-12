@@ -33,6 +33,27 @@ export function isAbstraction(e: Expression): e is Abstraction {
     return (e as Abstraction).body !== undefined
 }
 
+export function recursivelySubstituteArgument(e: Expression, identToReplace: Identifier, replaceWith: Expression): Expression {
+    const recursivelySubstituteArgumentInner = (e: Expression): Expression => {
+        if (isIdentifier(e) && e == identToReplace) {
+            return replaceWith
+        } else if (isAbstraction(e)) {
+            return e.input == identToReplace ? e : {
+                input: e.input,
+                body: recursivelySubstituteArgumentInner(e.body),
+            }
+        } else if (isApplication(e)) {
+            return {
+                left: recursivelySubstituteArgumentInner(e.left),
+                right: recursivelySubstituteArgumentInner(e.right),
+            }
+        }
+
+        return e
+    }
+    return recursivelySubstituteArgumentInner(e)
+}
+
 export function evaluate(e: Expression): Expression {
     // Identifiers are atomic
     if (isIdentifier(e))
@@ -56,25 +77,8 @@ export function evaluate(e: Expression): Expression {
 
         // Takes in an expression, and recursively substitutes identToReplace with r
         // (by the definition of application)
-        const recursivelySubstituteArgument = (e: Expression): Expression => {
-            if (isIdentifier(e) && e == identToReplace) {
-                return r
-            } else if (isAbstraction(e)) {
-                return e.input == identToReplace ? e : {
-                    input: e.input,
-                    body: recursivelySubstituteArgument(e.body),
-                }
-            } else if (isApplication(e)) {
-                return {
-                    left: recursivelySubstituteArgument(e.left),
-                    right: recursivelySubstituteArgument(e.right),
-                }
-            }
+        const substituted = recursivelySubstituteArgument(l.body, identToReplace, r)
 
-            return e
-        }
-
-        const substituted = recursivelySubstituteArgument(l.body)
         if (deepObjectEquality(substituted, e)) {
             // We've got a recursive abstraction on our hands!
             // TODO: make this smarter; able to identify cyclical expansion loops
