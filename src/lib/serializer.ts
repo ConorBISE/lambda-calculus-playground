@@ -1,11 +1,21 @@
 import { Expression, isAbstraction, isApplication, isIdentifier } from "./abstraction"
 
-export function serializeExpression(e: Expression): string {
+export function serializeExpression(e: Expression, reprNumbers: boolean): string {
     if (isIdentifier(e))
         return e
 
-    if (isApplication(e))
-        return `${serializeExpression(e.left)} ${serializeExpression(e.right)}`
+    if (isApplication(e)) {
+        const leftPart = serializeExpression(e.left, reprNumbers)
+        let rightPart = serializeExpression(e.right, reprNumbers)
+
+        if (!isIdentifier(e.right) && !(rightPart.charAt(0) === "(")) {
+            // If the right part is anything more complicated than an identifier
+            // it'll need brackets to be understood by a greedy parser
+            rightPart = `(${rightPart})`
+        }
+
+        return `${leftPart} ${rightPart}`
+    }
 
     if (isAbstraction(e)) {
         // For the sake of brevity: tunnel down, and collapse consecutive abstractions into one
@@ -19,20 +29,33 @@ export function serializeExpression(e: Expression): string {
 
         // Identify numbers
         // Numbers repeat a function n times
-        if (inputs.length == 2) {
-            // This is horrible
-            // TODO: generalize to some sort of middleware-based system?
-            const bodyString = serializeExpression(body).replaceAll(" ", "")
-            const f = bodyString.slice(0, bodyString.length - 1)
-            const last = bodyString.charAt(bodyString.length - 1)
+        if (inputs.length == 2 && reprNumbers) {
+            const maybeF = inputs[0]
+            const maybeA = inputs[1]
 
-            const isNumber = f.split("").every(c => c === f[0]) && last != f[0]
+            const recursivelyCheckIsNumber = (e: Expression): [boolean, number] => {
+                if (isIdentifier(e) && e == maybeA)
+                    return [true, 0]
 
+                if (!isApplication(e))
+                    return [false, 0]
+
+                if (e.left != maybeF)
+                    return [false, 0]
+
+                if (e.right == maybeA)
+                    return [true, 1]
+
+                const [result, depth] = recursivelyCheckIsNumber(e.right)
+                return [result, depth + 1]
+            }
+
+            const [isNumber, depth] = recursivelyCheckIsNumber(body)
             if (isNumber)
-                return `${f.length}`
+                return `${depth}`
         }
 
-        return `(λ${inputs}.${serializeExpression(body)})`
+        return `(λ${inputs}.${serializeExpression(body, reprNumbers)})`
     }
 
     return ""

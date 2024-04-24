@@ -1,3 +1,5 @@
+import { Scope } from "./parser"
+
 function deepObjectEquality(x: any, y: any): boolean {
     // Adapted from https://javascript.plainenglish.io/you-dont-need-lodash-how-i-gave-up-lodash-693c8b96a07c
     const ok = Object.keys, tx = typeof x, ty = typeof y
@@ -54,44 +56,63 @@ export function recursivelySubstituteArgument(e: Expression, identToReplace: Ide
     return recursivelySubstituteArgumentInner(e)
 }
 
-export function evaluate(e: Expression): Expression {
-    // Identifiers are atomic
-    if (isIdentifier(e))
-        return e
+export type Step = {
+    e: Expression
+    explanation: string
+}
 
-    if (isAbstraction(e))
-        return {
-            input: e.input,
-            body: evaluate(e.body),
+export function evaluate(e: Expression, scope: Scope = {}): [Expression, Expression[]] {
+    // The current form of the expression we're working on
+    let w = e
+
+    const steps: Expression[] = []
+
+    while (true) {
+        const wStart = w
+
+        if (isIdentifier(w) && scope[w] !== undefined) {
+            // Can this be substituted with something in scope?
+            w = scope[w]
         }
 
-    // Guard rail: everything past this point deals with evaluating applications
-    if (!isApplication(e))
-        throw Error("Unknown expression type")
+        if (isApplication(w)) {
+            const [left, leftSteps] = evaluate(w.left, scope)
+            steps.push(...leftSteps.map(s => {
+                return { left: s, right: (w as Application).right }
+            }))
 
-    const l = evaluate(e.left)
-    const r = evaluate(e.right)
+            const [right, rightSteps] = evaluate(w.right, scope)
+            steps.push(...rightSteps.map(s => {
+                return { left, right: s }
+            }))
 
-    if (isAbstraction(l)) {
-        const identToReplace = l.input
-
-        // Takes in an expression, and recursively substitutes identToReplace with r
-        // (by the definition of application)
-        const substituted = recursivelySubstituteArgument(l.body, identToReplace, r)
-
-        if (deepObjectEquality(substituted, e)) {
-            // We've got a recursive abstraction on our hands!
-            // TODO: make this smarter; able to identify cyclical expansion loops
-            return substituted
+            if (isAbstraction(left)) {
+                w = recursivelySubstituteArgument(left.body, left.input, right)
+            } else {
+                w = { left, right }
+            }
         }
 
-        return evaluate(substituted)
-    }
+        if (isAbstraction(w)) {
+            const [body, bodySteps] = evaluate(w.body, scope)
+            steps.push(...bodySteps.map(s => {
+                return {
+                    input: (w as Abstraction).input,
+                    body: s,
+                }
+            }))
 
-    // If we're here, the left side of this application is a symbol, and we're done.
-    // The result is simply the right side applied to the left side.
-    return {
-        left: l,
-        right: r,
+            w = {
+                input: w.input,
+                body,
+            }
+        }
+
+        if (deepObjectEquality(wStart, w))
+            return [w, steps]
+
+        if (!deepObjectEquality(w, steps.at(-1))) {
+            steps.push(w)
+        }
     }
 }

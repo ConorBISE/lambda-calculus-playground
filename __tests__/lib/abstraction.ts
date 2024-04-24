@@ -58,7 +58,7 @@ describe("evaluate", () => {
         expect(evaluate({
             left: I,
             right: KI,
-        })).toEqual(KI)
+        })[0]).toEqual(KI)
 
         // M I a = a
         expect(evaluate({
@@ -67,7 +67,7 @@ describe("evaluate", () => {
                 right: I,
             },
             right: "a",
-        })).toEqual("a")
+        })[0]).toEqual("a")
 
         // K I a b = b
         expect(evaluate({
@@ -79,7 +79,7 @@ describe("evaluate", () => {
                 right: "a",
             },
             right: "b",
-        })).toEqual("b")
+        })[0]).toEqual("b")
 
         // C K a b = b
         expect(evaluate({
@@ -91,6 +91,6 @@ describe("evaluate", () => {
                 right: "a",
             },
             right: "b",
-        })).toEqual("b")
+        })[0]).toEqual("b")
     })
 })
