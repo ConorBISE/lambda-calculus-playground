@@ -67,6 +67,7 @@ export function evaluate(e: Expression, scope: Scope = {}): [Expression, Express
 
     const steps: Expression[] = []
 
+    /*eslint no-constant-condition: "off"*/
     while (true) {
         const wStart = w
 

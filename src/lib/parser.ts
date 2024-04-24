@@ -1,4 +1,4 @@
-import { Expression, Identifier, recursivelySubstituteArgument } from "./abstraction"
+import { Expression, Identifier } from "./abstraction"
 
 function takeCharacter(s: string): [string, string] {
     if (s.length === 0)

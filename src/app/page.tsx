@@ -1,13 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import { evaluate } from "@/lib/abstraction"
 import { parseScript } from "@/lib/parser"
 import { serializeExpression } from "@/lib/serializer"
 
 export default function Home() {
-    const [text, setText] = useState(decodeURIComponent(window.location.hash.slice(1)))
+    const [text, setText] = useState("")
+
+    useEffect(() => {
+        setText(decodeURIComponent(window.location.hash.slice(1)))
+    }, [])
 
     const [reprNumbers, setReprNumbers] = useState(false)
     const [debugInput, setDebugInput] = useState(false)
@@ -15,7 +19,7 @@ export default function Home() {
 
     const setTextWrapped = (s: string) => {
         setText(s)
-        window.location.hash = encodeURIComponent("#" + s)
+        window.location.hash = encodeURIComponent(s)
     }
 
     const [scope, parsed] = parseScript(text)
